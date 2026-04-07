@@ -3,10 +3,10 @@ using UnityEngine;
 public class VehicleController : MonoBehaviour
 {
     [Header("Movement")]
-    public float moveSpeed      = 5f;
-    public float jumpVelocity   = 12f;
+    public float moveSpeed = 5f;
+    public float jumpVelocity = 12f;
     public float wallClimbSpeed = 5f;
-    public float rotationSpeed  = 180f;
+    public float rotationSpeed = 180f;
 
     [Header("Ground Detection")]
     public float groundCheckDistance = 1.35f;
@@ -23,22 +23,23 @@ public class VehicleController : MonoBehaviour
 
     private enum State { Ground, RotatingToWall, WallCrawl }
     private State state = State.Ground;
-    private float targetAngle    = 0f;
+    private float targetAngle = 0f;
     private float lockedSurfaceX = 0f;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         chassisRenderer = GetComponent<SpriteRenderer>();
+        rb.freezeRotation = true;
     }
 
     void Update()
     {
         switch (state)
         {
-            case State.Ground:         UpdateGround();    break;
-            case State.RotatingToWall: UpdateRotating();  break;
-            case State.WallCrawl:      UpdateWallCrawl(); break;
+            case State.Ground: UpdateGround(); break;
+            case State.RotatingToWall: UpdateRotating(); break;
+            case State.WallCrawl: UpdateWallCrawl(); break;
         }
         DrawRays();
     }
@@ -52,8 +53,8 @@ public class VehicleController : MonoBehaviour
         float h = Input.GetAxisRaw("Horizontal");
         rb.linearVelocity = new Vector2(h * moveSpeed, rb.linearVelocity.y);
 
-        if      (h >  0.01f && !isFacingRight) { isFacingRight = true;  chassisRenderer.flipX = false; }
-        else if (h < -0.01f &&  isFacingRight) { isFacingRight = false; chassisRenderer.flipX = true;  }
+        if (h > 0.01f && !isFacingRight) { isFacingRight = true; chassisRenderer.flipX = false; }
+        else if (h < -0.01f && isFacingRight) { isFacingRight = false; chassisRenderer.flipX = true; }
 
         if (Input.GetButtonDown("Jump") && isGrounded)
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpVelocity);
@@ -76,13 +77,17 @@ public class VehicleController : MonoBehaviour
         targetAngle = isFacingRight ? 90f : -90f;
 
         // After rotation the chassis-down ray length determines standoff distance.
+        // Pull the vehicle 0.2 units closer than groundCheckDistance so the
+        // chassis-down ray endpoint sits inside the wall surface, not flush with it.
+        float wallStandoff = groundCheckDistance - 0.2f;
         if (isFacingRight)
-            lockedSurfaceX = hit.collider.bounds.min.x - groundCheckDistance;
+            lockedSurfaceX = hit.collider.bounds.min.x - wallStandoff;
         else
-            lockedSurfaceX = hit.collider.bounds.max.x + groundCheckDistance;
+            lockedSurfaceX = hit.collider.bounds.max.x + wallStandoff;
 
         rb.linearVelocity = Vector2.zero;
         rb.gravityScale   = 0f;
+        rb.isKinematic    = true;
     }
 
     // ── Rotating to wall ──────────────────────────────────────────────────────
@@ -90,10 +95,10 @@ public class VehicleController : MonoBehaviour
     void UpdateRotating()
     {
         float current = NormalizeAngle(transform.eulerAngles.z);
-        float next    = Mathf.MoveTowardsAngle(current, targetAngle, rotationSpeed * Time.deltaTime);
+        float next = Mathf.MoveTowardsAngle(current, targetAngle, rotationSpeed * Time.deltaTime);
 
         transform.eulerAngles = new Vector3(0f, 0f, next);
-        transform.position    = new Vector3(lockedSurfaceX, transform.position.y, 0f);
+        transform.position = new Vector3(lockedSurfaceX, transform.position.y, 0f);
 
         if (Mathf.Abs(Mathf.DeltaAngle(next, targetAngle)) < 0.5f)
         {
@@ -106,16 +111,23 @@ public class VehicleController : MonoBehaviour
 
     void UpdateWallCrawl()
     {
-        // Chassis-down ray now points into the wall — it is the surface detector.
+        // Chassis-down ray points into the wall — surface detector while crawling.
         bool onWall = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
 
-        float h        = Input.GetAxisRaw("Horizontal");
+        float h = Input.GetAxisRaw("Horizontal");
         float climbDir = isFacingRight ? h : -h;
-        rb.linearVelocity = new Vector2(0f, climbDir * wallClimbSpeed);
-        transform.position = new Vector3(lockedSurfaceX, transform.position.y, 0f);
+
+        // Gravity is off; drive position directly so physics can't interfere.
+        rb.linearVelocity = Vector2.zero;
+        transform.position = new Vector3(
+            lockedSurfaceX,
+            transform.position.y + climbDir * wallClimbSpeed * Time.deltaTime,
+            0f
+        );
 
         if (!onWall)
         {
+            rb.isKinematic  = false;
             rb.gravityScale = 1f;
             state = State.Ground;
         }
@@ -125,7 +137,7 @@ public class VehicleController : MonoBehaviour
 
     void DrawRays()
     {
-        Vector2 downDir    = -transform.up;
+        Vector2 downDir = -transform.up;
         Vector2 forwardDir = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
 
         // Chassis-perpendicular ray: ground detector on ground, wall detector on wall
