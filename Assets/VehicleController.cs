@@ -4,7 +4,9 @@ public class VehicleController : MonoBehaviour
 {
     [Header("Movement")]
     public float moveSpeed = 5f;
-    public float jumpVelocity = 12f;
+    public float acceleration = 25f;   // units/s² — ramp up
+    public float deceleration = 50f;   // units/s² — ramp down (snappier than accel)
+    public float jumpVelocity = 8f;
     public float wallClimbSpeed = 5f;
     public float rotationSpeed = 180f;
 
@@ -19,7 +21,9 @@ public class VehicleController : MonoBehaviour
     private Rigidbody2D rb;
     private SpriteRenderer chassisRenderer;
     private bool isGrounded;
+    private bool isOnTopOfWall; // true if grounded ray hits a wall surface instead of the groundå
     private bool isFacingRight = true;
+    private float currentSpeed = 0f;  // tracked speed for kinematic movement states
 
     private enum State { Ground, RotatingToWall, WallCrawl, RotatingToTop, TopCrawl }
     private State state = State.Ground;
@@ -39,11 +43,11 @@ public class VehicleController : MonoBehaviour
     {
         switch (state)
         {
-            case State.Ground:         UpdateGround();         break;
+            case State.Ground: UpdateGround(); break;
             case State.RotatingToWall: UpdateRotatingToWall(); break;
-            case State.WallCrawl:      UpdateWallCrawl();      break;
-            case State.RotatingToTop:  UpdateRotatingToTop();  break;
-            case State.TopCrawl:       UpdateTopCrawl();       break;
+            case State.WallCrawl: UpdateWallCrawl(); break;
+            case State.RotatingToTop: UpdateRotatingToTop(); break;
+            case State.TopCrawl: UpdateTopCrawl(); break;
         }
         DrawRays();
     }
@@ -53,14 +57,18 @@ public class VehicleController : MonoBehaviour
     void UpdateGround()
     {
         isGrounded = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, groundMask);
+        isOnTopOfWall = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
 
         float h = Input.GetAxisRaw("Horizontal");
-        rb.linearVelocity = new Vector2(h * moveSpeed, rb.linearVelocity.y);
+        float targetVx = h * moveSpeed;
+        float rate = Mathf.Abs(h) > 0.01f ? acceleration : deceleration;
+        float newVx = Mathf.MoveTowards(rb.linearVelocity.x, targetVx, rate * Time.deltaTime);
+        rb.linearVelocity = new Vector2(newVx, rb.linearVelocity.y);
 
         if (h > 0.01f && !isFacingRight) { isFacingRight = true; chassisRenderer.flipX = false; }
         else if (h < -0.01f && isFacingRight) { isFacingRight = false; chassisRenderer.flipX = true; }
 
-        if (Input.GetButtonDown("Jump") && isGrounded)
+        if (Input.GetButtonDown("Jump") && (isGrounded || isOnTopOfWall))
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpVelocity);
 
         if (isGrounded)
@@ -84,8 +92,9 @@ public class VehicleController : MonoBehaviour
             lockedSurfaceX = hit.collider.bounds.max.x + wallStandoff;
 
         rb.linearVelocity = Vector2.zero;
-        rb.gravityScale   = 0f;
-        rb.bodyType       = RigidbodyType2D.Kinematic;
+        rb.gravityScale = 0f;
+        rb.bodyType = RigidbodyType2D.Kinematic;
+        currentSpeed = 0f;
     }
 
     // ── Rotating to wall ──────────────────────────────────────────────────────
@@ -113,11 +122,14 @@ public class VehicleController : MonoBehaviour
 
         float h = Input.GetAxisRaw("Horizontal");
         float climbDir = isFacingRight ? h : -h;
+        float targetSpeed = climbDir * wallClimbSpeed;
+        float rate = Mathf.Abs(climbDir) > 0.01f ? acceleration : deceleration;
+        currentSpeed = Mathf.MoveTowards(currentSpeed, targetSpeed, rate * Time.deltaTime);
 
         rb.linearVelocity = Vector2.zero;
         transform.position = new Vector3(
             lockedSurfaceX,
-            transform.position.y + climbDir * wallClimbSpeed * Time.deltaTime,
+            transform.position.y + currentSpeed * Time.deltaTime,
             0f
         );
 
@@ -127,7 +139,7 @@ public class VehicleController : MonoBehaviour
                 EnterTopRotation();
             else
             {
-                rb.bodyType     = RigidbodyType2D.Dynamic;
+                rb.bodyType = RigidbodyType2D.Dynamic;
                 rb.gravityScale = 1f;
                 state = State.Ground;
             }
@@ -171,6 +183,7 @@ public class VehicleController : MonoBehaviour
         {
             transform.eulerAngles = Vector3.zero;
             lockedSurfaceY = cornerPivot.y + standoff; // at θ=0, offset.y = standoff
+            currentSpeed = 0f;
             state = State.TopCrawl;
         }
     }
@@ -186,16 +199,20 @@ public class VehicleController : MonoBehaviour
         if (h > 0.01f && !isFacingRight) { isFacingRight = true; chassisRenderer.flipX = false; }
         else if (h < -0.01f && isFacingRight) { isFacingRight = false; chassisRenderer.flipX = true; }
 
+        float targetSpeed = h * moveSpeed;
+        float rate = Mathf.Abs(h) > 0.01f ? acceleration : deceleration;
+        currentSpeed = Mathf.MoveTowards(currentSpeed, targetSpeed, rate * Time.deltaTime);
+
         rb.linearVelocity = Vector2.zero;
         transform.position = new Vector3(
-            transform.position.x + h * moveSpeed * Time.deltaTime,
+            transform.position.x + currentSpeed * Time.deltaTime,
             lockedSurfaceY,
             0f
         );
 
         if (!onSurface)
         {
-            rb.isKinematic  = false;
+            rb.isKinematic = false;
             rb.gravityScale = 1f;
             state = State.Ground;
         }

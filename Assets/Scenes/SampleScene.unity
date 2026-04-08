@@ -373,8 +373,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2150d0217b907455587f02f1d5546f9e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 5
-  jumpVelocity: 12
+  moveSpeed: 10
+  acceleration: 25
+  deceleration: 20
+  jumpVelocity: 7
+  wallClimbSpeed: 10
+  rotationSpeed: 300
   groundCheckDistance: 1.35
   groundMask:
     serializedVersion: 2
