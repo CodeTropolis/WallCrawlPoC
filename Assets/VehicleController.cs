@@ -21,10 +21,12 @@ public class VehicleController : MonoBehaviour
     private bool isGrounded;
     private bool isFacingRight = true;
 
-    private enum State { Ground, RotatingToWall, WallCrawl }
+    private enum State { Ground, RotatingToWall, WallCrawl, RotatingToTop, TopCrawl }
     private State state = State.Ground;
     private float targetAngle = 0f;
     private float lockedSurfaceX = 0f;
+    private float lockedSurfaceY = 0f;
+    private Vector2 cornerPivot;
 
     void Start()
     {
@@ -37,9 +39,11 @@ public class VehicleController : MonoBehaviour
     {
         switch (state)
         {
-            case State.Ground: UpdateGround(); break;
-            case State.RotatingToWall: UpdateRotating(); break;
-            case State.WallCrawl: UpdateWallCrawl(); break;
+            case State.Ground:         UpdateGround();         break;
+            case State.RotatingToWall: UpdateRotatingToWall(); break;
+            case State.WallCrawl:      UpdateWallCrawl();      break;
+            case State.RotatingToTop:  UpdateRotatingToTop();  break;
+            case State.TopCrawl:       UpdateTopCrawl();       break;
         }
         DrawRays();
     }
@@ -71,14 +75,8 @@ public class VehicleController : MonoBehaviour
     void EnterWallRotation(RaycastHit2D hit)
     {
         state = State.RotatingToWall;
-
-        // Rotate so the chassis bottom (-transform.up) faces the wall.
-        // Right wall → +90°; left wall → -90°.
         targetAngle = isFacingRight ? 90f : -90f;
 
-        // After rotation the chassis-down ray length determines standoff distance.
-        // Pull the vehicle 0.2 units closer than groundCheckDistance so the
-        // chassis-down ray endpoint sits inside the wall surface, not flush with it.
         float wallStandoff = groundCheckDistance - 0.2f;
         if (isFacingRight)
             lockedSurfaceX = hit.collider.bounds.min.x - wallStandoff;
@@ -87,12 +85,12 @@ public class VehicleController : MonoBehaviour
 
         rb.linearVelocity = Vector2.zero;
         rb.gravityScale   = 0f;
-        rb.isKinematic    = true;
+        rb.bodyType       = RigidbodyType2D.Kinematic;
     }
 
     // ── Rotating to wall ──────────────────────────────────────────────────────
 
-    void UpdateRotating()
+    void UpdateRotatingToWall()
     {
         float current = NormalizeAngle(transform.eulerAngles.z);
         float next = Mathf.MoveTowardsAngle(current, targetAngle, rotationSpeed * Time.deltaTime);
@@ -111,13 +109,11 @@ public class VehicleController : MonoBehaviour
 
     void UpdateWallCrawl()
     {
-        // Chassis-down ray points into the wall — surface detector while crawling.
         bool onWall = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
 
         float h = Input.GetAxisRaw("Horizontal");
         float climbDir = isFacingRight ? h : -h;
 
-        // Gravity is off; drive position directly so physics can't interfere.
         rb.linearVelocity = Vector2.zero;
         transform.position = new Vector3(
             lockedSurfaceX,
@@ -126,6 +122,78 @@ public class VehicleController : MonoBehaviour
         );
 
         if (!onWall)
+        {
+            if (climbDir > 0f)
+                EnterTopRotation();
+            else
+            {
+                rb.bodyType     = RigidbodyType2D.Dynamic;
+                rb.gravityScale = 1f;
+                state = State.Ground;
+            }
+        }
+    }
+
+    // ── Rotating to top ───────────────────────────────────────────────────────
+
+    void EnterTopRotation()
+    {
+        state = State.RotatingToTop;
+        float standoff = groundCheckDistance - 0.2f;
+
+        // Corner is the wall edge where the side face meets the top face.
+        // The vehicle center is at lockedSurfaceX = wall_face ∓ standoff, so:
+        //   right wall → corner.x = lockedSurfaceX + standoff = wall left face
+        //   left wall  → corner.x = lockedSurfaceX - standoff = wall right face
+        float cornerX = isFacingRight
+            ? lockedSurfaceX + standoff
+            : lockedSurfaceX - standoff;
+
+        cornerPivot = new Vector2(cornerX, transform.position.y);
+        targetAngle = 0f;
+    }
+
+    void UpdateRotatingToTop()
+    {
+        float standoff = groundCheckDistance - 0.2f;
+        float current = NormalizeAngle(transform.eulerAngles.z);
+        float next = Mathf.MoveTowardsAngle(current, targetAngle, rotationSpeed * Time.deltaTime);
+        transform.eulerAngles = new Vector3(0f, 0f, next);
+
+        // Orbit the vehicle center around the corner pivot so the chassis bottom
+        // stays tangent to the corner. At angle θ, transform.up = (-sinθ, cosθ),
+        // so center = corner + standoff * transform.up.
+        float rad = next * Mathf.Deg2Rad;
+        Vector2 offset = standoff * new Vector2(-Mathf.Sin(rad), Mathf.Cos(rad));
+        transform.position = new Vector3(cornerPivot.x + offset.x, cornerPivot.y + offset.y, 0f);
+
+        if (Mathf.Abs(Mathf.DeltaAngle(next, targetAngle)) < 0.5f)
+        {
+            transform.eulerAngles = Vector3.zero;
+            lockedSurfaceY = cornerPivot.y + standoff; // at θ=0, offset.y = standoff
+            state = State.TopCrawl;
+        }
+    }
+
+    // ── Top crawl ─────────────────────────────────────────────────────────────
+
+    void UpdateTopCrawl()
+    {
+        bool onSurface = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
+
+        float h = Input.GetAxisRaw("Horizontal");
+
+        if (h > 0.01f && !isFacingRight) { isFacingRight = true; chassisRenderer.flipX = false; }
+        else if (h < -0.01f && isFacingRight) { isFacingRight = false; chassisRenderer.flipX = true; }
+
+        rb.linearVelocity = Vector2.zero;
+        transform.position = new Vector3(
+            transform.position.x + h * moveSpeed * Time.deltaTime,
+            lockedSurfaceY,
+            0f
+        );
+
+        if (!onSurface)
         {
             rb.isKinematic  = false;
             rb.gravityScale = 1f;
@@ -140,12 +208,11 @@ public class VehicleController : MonoBehaviour
         Vector2 downDir = -transform.up;
         Vector2 forwardDir = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
 
-        // Chassis-perpendicular ray: ground detector on ground, wall detector on wall
-        LayerMask surfaceMask = state == State.WallCrawl ? wallMask : groundMask;
+        bool onWallState = state == State.WallCrawl || state == State.RotatingToTop || state == State.TopCrawl;
+        LayerMask surfaceMask = onWallState ? wallMask : groundMask;
         bool surfaceHit = Physics2D.Raycast(transform.position, downDir, groundCheckDistance, surfaceMask);
         Debug.DrawRay(transform.position, downDir * groundCheckDistance, surfaceHit ? Color.green : Color.red);
 
-        // Chassis-parallel ray: wall detector
         bool wallDetected = Physics2D.Raycast(transform.position, forwardDir, wallDetectorDistance, wallMask);
         Debug.DrawRay(transform.position, forwardDir * wallDetectorDistance, wallDetected ? Color.magenta : Color.yellow);
     }
