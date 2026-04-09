@@ -71,13 +71,10 @@ public class VehicleController : MonoBehaviour
         if (Input.GetButtonDown("Jump") && (isGrounded || isOnTopOfWall))
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpVelocity);
 
-        if (isGrounded)
-        {
-            Vector2 fwd = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
-            RaycastHit2D hit = Physics2D.Raycast(transform.position, fwd, wallDetectorDistance, wallMask);
-            if (hit.collider != null)
-                EnterWallRotation(hit);
-        }
+        Vector2 fwd = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
+        RaycastHit2D hit = Physics2D.Raycast(transform.position, fwd, wallDetectorDistance, wallMask);
+        if (hit.collider != null)
+            EnterWallRotation(hit);
     }
 
     void EnterWallRotation(RaycastHit2D hit)
