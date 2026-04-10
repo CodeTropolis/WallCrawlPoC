@@ -61,6 +61,27 @@ public class VehicleController : MonoBehaviour
         isGrounded = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, groundMask);
         isOnTopOfWall = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
 
+        // Normal detection: cast from front of vehicle so it catches slopes ahead.
+        Vector2 fwd = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
+        Vector2 normalRayOrigin = (Vector2)transform.position + fwd * 0.5f;
+        float normalRayLength = groundCheckDistance * 2f;
+        RaycastHit2D groundHit = Physics2D.Raycast(normalRayOrigin, -transform.up, normalRayLength, groundMask);
+        RaycastHit2D wallTopHit = Physics2D.Raycast(normalRayOrigin, -transform.up, normalRayLength, wallMask);
+
+        // Align rotation to surface normal.
+        RaycastHit2D surfaceHit = groundHit.collider != null ? groundHit : wallTopHit;
+        if (surfaceHit.collider != null)
+        {
+            Vector2 n = surfaceHit.normal;
+            float targetZAngle = Mathf.Atan2(-n.x, n.y) * Mathf.Rad2Deg;
+            rb.rotation = Mathf.MoveTowardsAngle(rb.rotation, targetZAngle, rotationSpeed * Time.deltaTime);
+        }
+        else
+        {
+            // Airborne: level out.
+            rb.rotation = Mathf.MoveTowardsAngle(rb.rotation, 0f, rotationSpeed * Time.deltaTime);
+        }
+
         float h = Input.GetAxisRaw("Horizontal");
         float targetVx = h * moveSpeed;
         float rate = Mathf.Abs(h) > 0.01f ? acceleration : deceleration;
@@ -73,8 +94,8 @@ public class VehicleController : MonoBehaviour
         if (Input.GetButtonDown("Jump") && (isGrounded || isOnTopOfWall))
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpVelocity);
 
-        Vector2 fwd = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
-        RaycastHit2D hit = Physics2D.Raycast(transform.position, fwd, wallDetectorDistance, wallMask);
+        Vector2 wallCheckDir = isFacingRight ? Vector2.right : Vector2.left;
+        RaycastHit2D hit = Physics2D.Raycast(transform.position, wallCheckDir, wallDetectorDistance, wallMask);
         if (hit.collider != null)
             EnterWallRotation(hit);
     }
@@ -87,9 +108,9 @@ public class VehicleController : MonoBehaviour
 
         float wallStandoff = groundCheckDistance - 0.2f;
         if (climbingRightWall)
-            lockedSurfaceX = hit.collider.bounds.min.x - wallStandoff;
+            lockedSurfaceX = hit.point.x - wallStandoff;
         else
-            lockedSurfaceX = hit.collider.bounds.max.x + wallStandoff;
+            lockedSurfaceX = hit.point.x + wallStandoff;
 
         rb.linearVelocity = Vector2.zero;
         rb.gravityScale = 0f;
