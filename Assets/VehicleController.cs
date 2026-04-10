@@ -21,11 +21,12 @@ public class VehicleController : MonoBehaviour
     private Rigidbody2D rb;
     private SpriteRenderer chassisRenderer;
     private bool isGrounded;
-    private bool isOnTopOfWall; // true if grounded ray hits a wall surface instead of the groundå
+    private bool isOnTopOfWall;
     private bool isFacingRight = true;
-    private float currentSpeed = 0f;  // tracked speed for kinematic movement states
+    private bool climbingRightWall; // which wall face we're on, independent of visual facing
+    private float currentSpeed = 0f;
 
-    private enum State { Ground, RotatingToWall, WallCrawl, RotatingToTop, TopCrawl }
+    private enum State { Ground, RotatingToWall, WallCrawl, RotatingToGround, RotatingToTop, TopCrawl }
     private State state = State.Ground;
     private float targetAngle = 0f;
     private float lockedSurfaceX = 0f;
@@ -46,6 +47,7 @@ public class VehicleController : MonoBehaviour
             case State.Ground: UpdateGround(); break;
             case State.RotatingToWall: UpdateRotatingToWall(); break;
             case State.WallCrawl: UpdateWallCrawl(); break;
+            case State.RotatingToGround: UpdateRotatingToGround(); break;
             case State.RotatingToTop: UpdateRotatingToTop(); break;
             case State.TopCrawl: UpdateTopCrawl(); break;
         }
@@ -80,10 +82,11 @@ public class VehicleController : MonoBehaviour
     void EnterWallRotation(RaycastHit2D hit)
     {
         state = State.RotatingToWall;
-        targetAngle = isFacingRight ? 90f : -90f;
+        climbingRightWall = isFacingRight;
+        targetAngle = climbingRightWall ? 90f : -90f;
 
         float wallStandoff = groundCheckDistance - 0.2f;
-        if (isFacingRight)
+        if (climbingRightWall)
             lockedSurfaceX = hit.collider.bounds.min.x - wallStandoff;
         else
             lockedSurfaceX = hit.collider.bounds.max.x + wallStandoff;
@@ -118,7 +121,21 @@ public class VehicleController : MonoBehaviour
         bool onWall = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
 
         float h = Input.GetAxisRaw("Horizontal");
-        float climbDir = isFacingRight ? h : -h;
+        float climbDir = climbingRightWall ? h : -h;
+
+        // Facing: front faces up when climbing, down when descending.
+        bool goingDown = climbDir < -0.01f;
+        if (goingDown)
+        {
+            isFacingRight = !climbingRightWall;
+            chassisRenderer.flipX = climbingRightWall;
+        }
+        else
+        {
+            isFacingRight = climbingRightWall;
+            chassisRenderer.flipX = !climbingRightWall;
+        }
+
         float targetSpeed = climbDir * wallClimbSpeed;
         float rate = Mathf.Abs(climbDir) > 0.01f ? acceleration : deceleration;
         currentSpeed = Mathf.MoveTowards(currentSpeed, targetSpeed, rate * Time.deltaTime);
@@ -130,6 +147,18 @@ public class VehicleController : MonoBehaviour
             0f
         );
 
+        // When descending, check if the forward ray (now pointing down) hits the ground.
+        if (goingDown)
+        {
+            Vector2 fwd = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
+            RaycastHit2D groundHit = Physics2D.Raycast(transform.position, fwd, wallDetectorDistance, groundMask);
+            if (groundHit.collider != null)
+            {
+                EnterGroundRotation(groundHit);
+                return;
+            }
+        }
+
         if (!onWall)
         {
             if (climbDir > 0f)
@@ -140,6 +169,49 @@ public class VehicleController : MonoBehaviour
                 rb.gravityScale = 1f;
                 state = State.Ground;
             }
+        }
+    }
+
+    // ── Rotating to ground ────────────────────────────────────────────────────
+
+    void EnterGroundRotation(RaycastHit2D groundHit)
+    {
+        state = State.RotatingToGround;
+        targetAngle = 0f;
+        currentSpeed = 0f;
+
+        // Lock Y to the ground surface top so we orbit the bottom corner cleanly.
+        float standoff = groundCheckDistance - 0.2f;
+        float groundY = groundHit.collider.bounds.max.y + standoff;
+        lockedSurfaceY = groundY;
+
+        // Pivot is the wall-bottom corner: same X as the wall face, Y at ground level.
+        float cornerX = climbingRightWall
+            ? lockedSurfaceX + standoff   // right wall: pivot is the wall's left edge
+            : lockedSurfaceX - standoff;  // left wall: pivot is the wall's right edge
+        cornerPivot = new Vector2(cornerX, groundHit.collider.bounds.max.y);
+    }
+
+    void UpdateRotatingToGround()
+    {
+        float standoff = groundCheckDistance - 0.2f;
+        float current = NormalizeAngle(transform.eulerAngles.z);
+        float next = Mathf.MoveTowardsAngle(current, targetAngle, rotationSpeed * Time.deltaTime);
+        transform.eulerAngles = new Vector3(0f, 0f, next);
+
+        // Same orbit formula as RotatingToTop: center = pivot + standoff * transform.up
+        float rad = next * Mathf.Deg2Rad;
+        Vector2 offset = standoff * new Vector2(-Mathf.Sin(rad), Mathf.Cos(rad));
+        transform.position = new Vector3(cornerPivot.x + offset.x, cornerPivot.y + offset.y, 0f);
+
+        if (Mathf.Abs(Mathf.DeltaAngle(next, targetAngle)) < 0.5f)
+        {
+            transform.eulerAngles = Vector3.zero;
+            isFacingRight = climbingRightWall;
+            chassisRenderer.flipX = !climbingRightWall;
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.gravityScale = 1f;
+            state = State.Ground;
         }
     }
 
