@@ -302,7 +302,7 @@ public class VehicleController : MonoBehaviour
 
         if (!onSurface)
         {
-            rb.isKinematic = false;
+            rb.bodyType = RigidbodyType2D.Dynamic;
             rb.gravityScale = 1f;
             state = State.Ground;
         }
@@ -322,6 +322,12 @@ public class VehicleController : MonoBehaviour
 
         bool wallDetected = Physics2D.Raycast(transform.position, forwardDir, wallDetectorDistance, wallMask);
         Debug.DrawRay(transform.position, forwardDir * wallDetectorDistance, wallDetected ? Color.magenta : Color.yellow);
+
+        // Front-offset normal ray
+        Vector2 normalRayOrigin = (Vector2)transform.position + forwardDir * 0.5f;
+        float normalRayLength = groundCheckDistance * 2f;
+        bool normalHit = Physics2D.Raycast(normalRayOrigin, downDir, normalRayLength, groundMask | wallMask);
+        Debug.DrawRay(normalRayOrigin, downDir * normalRayLength, normalHit ? Color.cyan : Color.white);
     }
 
     static float NormalizeAngle(float a)
