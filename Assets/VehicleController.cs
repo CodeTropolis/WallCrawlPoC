@@ -18,6 +18,11 @@ public class VehicleController : MonoBehaviour
     public float wallDetectorDistance = 2f;
     public LayerMask wallMask;
 
+    [Header("Wheel Positions")]
+    public float frontWheelOffsetX = 0.8f; // horizontal dist from center to front wheel
+    public float rearWheelOffsetX  = 0.8f; // horizontal dist from center to rear wheel
+    public float wheelOffsetY      = 0.9f; // vertical dist down from center to wheel axles
+
     private Rigidbody2D rb;
     private SpriteRenderer chassisRenderer;
     private bool isGrounded;
@@ -33,7 +38,6 @@ public class VehicleController : MonoBehaviour
     private float lockedSurfaceY = 0f;
     private Vector2 cornerPivot;
 
-    private const float GroundOrSlopeOrWallTopRayOffset = 1.2f; // how much to pull back the ray origins from the chassis center to avoid immediate self-collision
 
     void Start()
     {
@@ -64,25 +68,28 @@ public class VehicleController : MonoBehaviour
         isGrounded = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, groundMask);
         isOnTopOfWall = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
 
-        // Front-offset rays for surface normal alignment (anticipates slopes ahead).
-        Vector2 fwd = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
-        Vector2 normalRayOrigin = (Vector2)transform.position + fwd * GroundOrSlopeOrWallTopRayOffset;
-        float normalRayLength = groundCheckDistance * 2f;
-        RaycastHit2D groundHit = Physics2D.Raycast(normalRayOrigin, -transform.up, normalRayLength, groundMask);
-        RaycastHit2D wallTopHit = Physics2D.Raycast(normalRayOrigin, -transform.up, normalRayLength, wallMask);
+        // Per-wheel raycasts to compute the angle the vehicle should sit at.
+        Vector2 fwd  = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
+        Vector2 back = -fwd;
+        Vector2 frontWheelOrigin = rb.position + fwd  * frontWheelOffsetX + (Vector2)(-transform.up) * wheelOffsetY;
+        Vector2 rearWheelOrigin  = rb.position + back * rearWheelOffsetX  + (Vector2)(-transform.up) * wheelOffsetY;
+        float castLen = groundCheckDistance * 2f;
+        LayerMask combinedMask = groundMask | wallMask;
+        RaycastHit2D frontHit = Physics2D.Raycast(frontWheelOrigin, Vector2.down, castLen, combinedMask);
+        RaycastHit2D rearHit  = Physics2D.Raycast(rearWheelOrigin,  Vector2.down, castLen, combinedMask);
 
-        // Align rotation to surface normal.
-        RaycastHit2D surfaceHit = groundHit.collider != null ? groundHit : wallTopHit;
-        if (surfaceHit.collider != null)
+        if (frontHit.collider != null && rearHit.collider != null)
         {
-            Vector2 n = surfaceHit.normal;
-            float targetZAngle = Mathf.Atan2(-n.x, n.y) * Mathf.Rad2Deg;
-            rb.rotation = Mathf.MoveTowardsAngle(rb.rotation, targetZAngle, rotationSpeed * Time.deltaTime);
+            // Angle = slope between the two contact points.
+            Vector2 diff = frontHit.point - rearHit.point;
+            float targetZAngle = Mathf.Atan2(diff.y, diff.x) * Mathf.Rad2Deg;
+            if (!isFacingRight) targetZAngle += 180f;
+            RotateAroundRearWheel(targetZAngle);
         }
         else
         {
-            // Airborne: level out.
-            rb.rotation = Mathf.MoveTowardsAngle(rb.rotation, 0f, rotationSpeed * Time.deltaTime);
+            // One or both wheels airborne — level out.
+            RotateAroundRearWheel(0f);
         }
 
         float h = Input.GetAxisRaw("Horizontal");
@@ -316,6 +323,7 @@ public class VehicleController : MonoBehaviour
         {
             rb.bodyType = RigidbodyType2D.Dynamic;
             rb.gravityScale = 1f;
+            rb.linearVelocity = new Vector2(currentSpeed, 0f);
             state = State.Ground;
         }
     }
@@ -334,15 +342,49 @@ public class VehicleController : MonoBehaviour
         bool surfaceHit = Physics2D.Raycast(transform.position, downDir, groundCheckDistance, surfaceMask);
         Debug.DrawRay(transform.position, downDir * groundCheckDistance, surfaceHit ? Color.green : Color.red);
 
-        // Front-offset ray — normal alignment
-        Vector2 normalRayOrigin = (Vector2)transform.position + forwardDir * GroundOrSlopeOrWallTopRayOffset;
-        float normalRayLength = groundCheckDistance * 2f;
-        bool normalHit = Physics2D.Raycast(normalRayOrigin, downDir, normalRayLength, surfaceMask);
-        Debug.DrawRay(normalRayOrigin, downDir * normalRayLength, normalHit ? Color.cyan : Color.white);
+        // Per-wheel rays — slope angle detection
+        Vector2 backDir = -forwardDir;
+        Vector2 frontWheelOrigin = rb.position + forwardDir * frontWheelOffsetX + downDir * wheelOffsetY;
+        Vector2 rearWheelOrigin  = rb.position + backDir   * rearWheelOffsetX  + downDir * wheelOffsetY;
+        bool frontHit = Physics2D.Raycast(frontWheelOrigin, downDir, groundCheckDistance, groundMask | wallMask);
+        bool rearHit  = Physics2D.Raycast(rearWheelOrigin,  downDir, groundCheckDistance, groundMask | wallMask);
+        Debug.DrawRay(frontWheelOrigin, downDir * groundCheckDistance, frontHit ? Color.cyan : Color.white);
+        Debug.DrawRay(rearWheelOrigin,  downDir * groundCheckDistance, rearHit  ? Color.cyan : Color.white);
 
         bool wallDetected = Physics2D.Raycast(transform.position, forwardDir, wallDetectorDistance, wallMask);
         Debug.DrawRay(transform.position, forwardDir * wallDetectorDistance, wallDetected ? Color.magenta : Color.yellow);
 
+    }
+
+    void RotateAroundRearWheel(float targetZAngle)
+    {
+        float nextAngle = Mathf.MoveTowardsAngle(rb.rotation, targetZAngle, rotationSpeed * Time.deltaTime);
+        if (Mathf.Approximately(nextAngle, rb.rotation)) return;
+
+        // Pivot = rear wheel ground contact point (bottom of rear wheel) in local space.
+        float rearSign = isFacingRight ? -1f : 1f;
+        Vector2 localPivot = new Vector2(rearSign * rearWheelOffsetX, -wheelOffsetY);
+
+        // World position of pivot before rotation — use rb.position, not transform.position.
+        float oldRad = rb.rotation * Mathf.Deg2Rad;
+        Vector2 pivotBefore = rb.position + RotateVector(localPivot, oldRad);
+
+        // Apply new rotation.
+        rb.rotation = nextAngle;
+
+        // World position of pivot after rotation.
+        float newRad = nextAngle * Mathf.Deg2Rad;
+        Vector2 pivotAfter = rb.position + RotateVector(localPivot, newRad);
+
+        // Shift vehicle so pivot stays planted.
+        rb.position += pivotBefore - pivotAfter;
+    }
+
+    static Vector2 RotateVector(Vector2 v, float radians)
+    {
+        float cos = Mathf.Cos(radians);
+        float sin = Mathf.Sin(radians);
+        return new Vector2(cos * v.x - sin * v.y, sin * v.x + cos * v.y);
     }
 
     static float NormalizeAngle(float a)
