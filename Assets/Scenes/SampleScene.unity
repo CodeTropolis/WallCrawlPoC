@@ -130,6 +130,7 @@ GameObject:
   - component: {fileID: 308940516}
   - component: {fileID: 308940518}
   - component: {fileID: 308940517}
+  - component: {fileID: 308940519}
   m_Layer: 0
   m_Name: Wheel Front
   m_TagString: Untagged
@@ -243,6 +244,20 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!114 &308940519
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 308940515}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2240124bb4b884ea6a3eec1913c479f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  vehicleTransform: {fileID: 441403939}
+  wheelRadius: 0.3
 --- !u!1 &441403937
 GameObject:
   m_ObjectHideFlags: 0
@@ -1025,6 +1040,7 @@ GameObject:
   - component: {fileID: 1558929869}
   - component: {fileID: 1558929871}
   - component: {fileID: 1558929870}
+  - component: {fileID: 1558929872}
   m_Layer: 0
   m_Name: Wheel Rear
   m_TagString: Untagged
@@ -1138,6 +1154,20 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!114 &1558929872
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1558929868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2240124bb4b884ea6a3eec1913c479f6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  vehicleTransform: {fileID: 441403939}
+  wheelRadius: 0.3
 --- !u!1 &1710581975
 GameObject:
   m_ObjectHideFlags: 0

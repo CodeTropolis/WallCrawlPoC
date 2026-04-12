@@ -20,8 +20,8 @@ public class VehicleController : MonoBehaviour
 
     [Header("Wheel Positions")]
     public float frontWheelOffsetX = 0.8f; // horizontal dist from center to front wheel
-    public float rearWheelOffsetX  = 0.8f; // horizontal dist from center to rear wheel
-    public float wheelOffsetY      = 0.9f; // vertical dist down from center to wheel axles
+    public float rearWheelOffsetX = 0.8f; // horizontal dist from center to rear wheel
+    public float wheelOffsetY = 0.9f; // vertical dist down from center to wheel axles
 
     private Rigidbody2D rb;
     private SpriteRenderer chassisRenderer;
@@ -69,14 +69,14 @@ public class VehicleController : MonoBehaviour
         isOnTopOfWall = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
 
         // Per-wheel raycasts to compute the angle the vehicle should sit at.
-        Vector2 fwd  = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
+        Vector2 fwd = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
         Vector2 back = -fwd;
-        Vector2 frontWheelOrigin = rb.position + fwd  * frontWheelOffsetX + (Vector2)(-transform.up) * wheelOffsetY;
-        Vector2 rearWheelOrigin  = rb.position + back * rearWheelOffsetX  + (Vector2)(-transform.up) * wheelOffsetY;
+        Vector2 frontWheelOrigin = rb.position + fwd * frontWheelOffsetX + (Vector2)(-transform.up) * wheelOffsetY;
+        Vector2 rearWheelOrigin = rb.position + back * rearWheelOffsetX + (Vector2)(-transform.up) * wheelOffsetY;
         float castLen = groundCheckDistance * 2f;
         LayerMask combinedMask = groundMask | wallMask;
         RaycastHit2D frontHit = Physics2D.Raycast(frontWheelOrigin, Vector2.down, castLen, combinedMask);
-        RaycastHit2D rearHit  = Physics2D.Raycast(rearWheelOrigin,  Vector2.down, castLen, combinedMask);
+        RaycastHit2D rearHit = Physics2D.Raycast(rearWheelOrigin, Vector2.down, castLen, combinedMask);
 
         if (frontHit.collider != null && rearHit.collider != null)
         {
@@ -345,11 +345,11 @@ public class VehicleController : MonoBehaviour
         // Per-wheel rays — slope angle detection
         Vector2 backDir = -forwardDir;
         Vector2 frontWheelOrigin = rb.position + forwardDir * frontWheelOffsetX + downDir * wheelOffsetY;
-        Vector2 rearWheelOrigin  = rb.position + backDir   * rearWheelOffsetX  + downDir * wheelOffsetY;
+        Vector2 rearWheelOrigin = rb.position + backDir * rearWheelOffsetX + downDir * wheelOffsetY;
         bool frontHit = Physics2D.Raycast(frontWheelOrigin, downDir, groundCheckDistance, groundMask | wallMask);
-        bool rearHit  = Physics2D.Raycast(rearWheelOrigin,  downDir, groundCheckDistance, groundMask | wallMask);
+        bool rearHit = Physics2D.Raycast(rearWheelOrigin, downDir, groundCheckDistance, groundMask | wallMask);
         Debug.DrawRay(frontWheelOrigin, downDir * groundCheckDistance, frontHit ? Color.cyan : Color.white);
-        Debug.DrawRay(rearWheelOrigin,  downDir * groundCheckDistance, rearHit  ? Color.cyan : Color.white);
+        Debug.DrawRay(rearWheelOrigin, downDir * groundCheckDistance, rearHit ? Color.cyan : Color.white);
 
         bool wallDetected = Physics2D.Raycast(transform.position, forwardDir, wallDetectorDistance, wallMask);
         Debug.DrawRay(transform.position, forwardDir * wallDetectorDistance, wallDetected ? Color.magenta : Color.yellow);
