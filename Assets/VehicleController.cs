@@ -33,6 +33,8 @@ public class VehicleController : MonoBehaviour
     private float lockedSurfaceY = 0f;
     private Vector2 cornerPivot;
 
+    private const float GroundOrSlopeOrWallTopRayOffset = 1.2f; // how much to pull back the ray origins from the chassis center to avoid immediate self-collision
+
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -58,12 +60,13 @@ public class VehicleController : MonoBehaviour
 
     void UpdateGround()
     {
+        // Center rays for reliable grounded/wall-top detection.
         isGrounded = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, groundMask);
         isOnTopOfWall = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
 
-        // Normal detection: cast from front of vehicle so it catches slopes ahead.
+        // Front-offset rays for surface normal alignment (anticipates slopes ahead).
         Vector2 fwd = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
-        Vector2 normalRayOrigin = (Vector2)transform.position + fwd * 0.5f;
+        Vector2 normalRayOrigin = (Vector2)transform.position + fwd * GroundOrSlopeOrWallTopRayOffset;
         float normalRayLength = groundCheckDistance * 2f;
         RaycastHit2D groundHit = Physics2D.Raycast(normalRayOrigin, -transform.up, normalRayLength, groundMask);
         RaycastHit2D wallTopHit = Physics2D.Raycast(normalRayOrigin, -transform.up, normalRayLength, wallMask);
@@ -300,6 +303,15 @@ public class VehicleController : MonoBehaviour
             0f
         );
 
+        if (Input.GetButtonDown("Jump") && onSurface)
+        {
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.gravityScale = 1f;
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpVelocity);
+            state = State.Ground;
+            return;
+        }
+
         if (!onSurface)
         {
             rb.bodyType = RigidbodyType2D.Dynamic;
@@ -317,17 +329,20 @@ public class VehicleController : MonoBehaviour
 
         bool onWallState = state == State.WallCrawl || state == State.RotatingToTop || state == State.TopCrawl;
         LayerMask surfaceMask = onWallState ? wallMask : groundMask;
+
+        // Center ray — grounded/wall-top detection
         bool surfaceHit = Physics2D.Raycast(transform.position, downDir, groundCheckDistance, surfaceMask);
         Debug.DrawRay(transform.position, downDir * groundCheckDistance, surfaceHit ? Color.green : Color.red);
+
+        // Front-offset ray — normal alignment
+        Vector2 normalRayOrigin = (Vector2)transform.position + forwardDir * GroundOrSlopeOrWallTopRayOffset;
+        float normalRayLength = groundCheckDistance * 2f;
+        bool normalHit = Physics2D.Raycast(normalRayOrigin, downDir, normalRayLength, surfaceMask);
+        Debug.DrawRay(normalRayOrigin, downDir * normalRayLength, normalHit ? Color.cyan : Color.white);
 
         bool wallDetected = Physics2D.Raycast(transform.position, forwardDir, wallDetectorDistance, wallMask);
         Debug.DrawRay(transform.position, forwardDir * wallDetectorDistance, wallDetected ? Color.magenta : Color.yellow);
 
-        // Front-offset normal ray
-        Vector2 normalRayOrigin = (Vector2)transform.position + forwardDir * 0.5f;
-        float normalRayLength = groundCheckDistance * 2f;
-        bool normalHit = Physics2D.Raycast(normalRayOrigin, downDir, normalRayLength, groundMask | wallMask);
-        Debug.DrawRay(normalRayOrigin, downDir * normalRayLength, normalHit ? Color.cyan : Color.white);
     }
 
     static float NormalizeAngle(float a)
