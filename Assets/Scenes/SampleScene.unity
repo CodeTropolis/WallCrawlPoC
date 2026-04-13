@@ -844,7 +844,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 441403939}
-  offset: {x: 10, y: 3}
+  offset: {x: 2, y: 3}
   smoothTime: 0.13
   facingTransition: 1
 --- !u!1 &619394800
