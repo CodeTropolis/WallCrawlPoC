@@ -15,7 +15,7 @@ public class VehicleController : MonoBehaviour
     public LayerMask groundMask;
 
     [Header("Wall Detection")]
-    public float wallDetectorDistance = 2f;
+    public float wallDetectorDistance = 2.5f;
     public LayerMask wallMask;
 
     [Header("Wheel Positions")]

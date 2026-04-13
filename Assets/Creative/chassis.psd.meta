@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: b63abc2a0517a4db7ae196a0e732809e
+guid: 1e64f628e4c7b42d0b88a3ac96ffc76d
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -7151706504463865037
-    second: sophia_placeholder_sm_0
+      213: -7018323932379705106
+    second: chassis_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: sophia_placeholder_sm_0
+      name: chassis_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 0
+        y: 113
         width: 388
-        height: 267
+        height: 154
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 33ba49753d800cc90800000000000000
-      internalID: -7151706504463865037
+      spriteID: ee092e37197e99e90800000000000000
+      internalID: -7018323932379705106
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      sophia_placeholder_sm_0: -7151706504463865037
+      chassis_0: -7018323932379705106
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
