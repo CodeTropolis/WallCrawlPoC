@@ -64,14 +64,15 @@ public class VehicleController : MonoBehaviour
 
     void FixedUpdate()
     {
-        // Pin X to the wall surface every physics step during wall states.
-        // This is done in FixedUpdate so it runs in sync with the physics solver,
-        // while Y velocity is left to the physics engine.
+        // During wall states, own velocity entirely in FixedUpdate so it runs
+        // in sync with the physics solver each step.
+        // X: correct any drift using velocity rather than teleporting the body.
+        // Y: wall climb speed (zero during rotation).
         if (state == State.WallCrawl || state == State.RotatingToWall)
         {
-            Vector2 pos = rb.position;
-            pos.x = lockedSurfaceX;
-            rb.position = pos;
+            float xCorrection = (lockedSurfaceX - rb.position.x) / Time.fixedDeltaTime;
+            float ySpeed      = state == State.WallCrawl ? currentSpeed : 0f;
+            rb.linearVelocity = new Vector2(xCorrection, ySpeed);
         }
     }
 
@@ -148,8 +149,7 @@ public class VehicleController : MonoBehaviour
         float current = NormalizeAngle(transform.eulerAngles.z);
         float next    = Mathf.MoveTowardsAngle(current, targetAngle, rotationSpeed * Time.deltaTime);
         transform.eulerAngles = new Vector3(0f, 0f, next);
-        // X is pinned by FixedUpdate; hold Y still during rotation.
-        rb.linearVelocity = Vector2.zero;
+        // X and Y velocity owned by FixedUpdate; nothing to set here.
 
         if (Mathf.Abs(Mathf.DeltaAngle(next, targetAngle)) < 0.5f)
         {
@@ -173,10 +173,7 @@ public class VehicleController : MonoBehaviour
 
         float rate   = Mathf.Abs(climbDir) > 0.01f ? acceleration : deceleration;
         currentSpeed = Mathf.MoveTowards(currentSpeed, climbDir * wallClimbSpeed, rate * Time.deltaTime);
-
-        // Y movement via velocity — physics applies this correctly each FixedUpdate step.
-        // X is pinned to the wall surface by FixedUpdate; don't touch it here.
-        rb.linearVelocity = new Vector2(0f, currentSpeed);
+        // Velocity is applied in FixedUpdate to stay in sync with the physics solver.
 
         // While descending, watch for the ground coming up.
         if (goingDown)
