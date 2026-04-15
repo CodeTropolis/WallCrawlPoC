@@ -12,6 +12,10 @@ public class StarBackground : MonoBehaviour
     public int textureWidth  = 1920;
     public int textureHeight = 1080;
 
+    [Header("Background Gradient")]
+    public Color topColor     = new(0.00f, 0.00f, 0.00f, 1f);   // black at top
+    public Color horizonColor = new(0.02f, 0.05f, 0.15f, 1f);   // dark blue at horizon
+
     [Header("Stars")]
     public int   totalStars         = 700;
     public int   seed               = 0;
@@ -36,9 +40,14 @@ public class StarBackground : MonoBehaviour
         };
 
         Color[] pixels = new Color[textureWidth * textureHeight];
-        // Initialise to opaque black.
-        for (int i = 0; i < pixels.Length; i++)
-            pixels[i] = new Color(0f, 0f, 0f, 1f);
+        // Gradient: black at top (y = textureHeight-1), dark blue at horizon (y = 0).
+        for (int y = 0; y < textureHeight; y++)
+        {
+            float t = (float)y / (textureHeight - 1);
+            Color bg = Color.Lerp(horizonColor, topColor, t);
+            for (int x = 0; x < textureWidth; x++)
+                pixels[y * textureWidth + x] = bg;
+        }
 
         Random.InitState(seed);
 
