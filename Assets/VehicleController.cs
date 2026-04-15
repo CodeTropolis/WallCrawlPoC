@@ -216,10 +216,11 @@ public class VehicleController : MonoBehaviour
         float groundY = groundHit.collider.bounds.max.y + standoff;
         lockedSurfaceY = groundY;
 
-        // Pivot is the wall-bottom corner: same X as the wall face, Y at ground level.
+        // Pivot sits on the opposite side of the vehicle from the wall so the arc
+        // sweeps away from the wall face, not into it.
         float cornerX = climbingRightWall
-            ? lockedSurfaceX + standoff   // right wall: pivot is the wall's left edge
-            : lockedSurfaceX - standoff;  // left wall: pivot is the wall's right edge
+            ? lockedSurfaceX - standoff   // right wall: pivot is to the vehicle's left
+            : lockedSurfaceX + standoff;  // left wall:  pivot is to the vehicle's right
         cornerPivot = new Vector2(cornerX, groundHit.collider.bounds.max.y);
     }
 
@@ -230,9 +231,9 @@ public class VehicleController : MonoBehaviour
         float next = Mathf.MoveTowardsAngle(current, targetAngle, rotationSpeed * Time.deltaTime);
         transform.eulerAngles = new Vector3(0f, 0f, next);
 
-        // Same orbit formula as RotatingToTop: center = pivot + standoff * transform.up
+        // Mirror of RotatingToTop: +sin sweeps the vehicle away from the wall face.
         float rad = next * Mathf.Deg2Rad;
-        Vector2 offset = standoff * new Vector2(-Mathf.Sin(rad), Mathf.Cos(rad));
+        Vector2 offset = standoff * new Vector2(Mathf.Sin(rad), Mathf.Cos(rad));
         transform.position = new Vector3(cornerPivot.x + offset.x, cornerPivot.y + offset.y, 0f);
 
         if (Mathf.Abs(Mathf.DeltaAngle(next, targetAngle)) < 0.5f)
