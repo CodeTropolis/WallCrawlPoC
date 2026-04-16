@@ -247,8 +247,8 @@ Transform:
   m_GameObject: {fileID: 158992120}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 37.6, y: -5.8498, z: 0}
-  m_LocalScale: {x: 38.70064, y: 2.0464852, z: 1}
+  m_LocalPosition: {x: 48.1288, y: -5.8498, z: 0}
+  m_LocalScale: {x: 59.757664, y: 2.0464852, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -499,7 +499,7 @@ Rigidbody2D:
   m_Mass: 1
   m_LinearDamping: 0
   m_AngularDamping: 0.05
-  m_GravityScale: 1
+  m_GravityScale: 2
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -526,7 +526,7 @@ MonoBehaviour:
   moveSpeed: 10
   acceleration: 25
   deceleration: 20
-  jumpVelocity: 7
+  jumpVelocity: 9
   wallClimbSpeed: 10
   rotationSpeed: 300
   groundCheckDistance: 2
@@ -622,7 +622,7 @@ Transform:
   m_GameObject: {fileID: 458776981}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -6.3, y: 3.1, z: 0}
+  m_LocalPosition: {x: 39.9, y: 8.9, z: 0}
   m_LocalScale: {x: 6.3086166, y: 19.048895, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -827,6 +827,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   textureWidth: 1920
   textureHeight: 1080
+  topColor: {r: 0, g: 0, b: 0, a: 1}
+  horizonColor: {r: 0.028657887, g: 0.08694824, b: 0.26415092, a: 1}
   totalStars: 700
   seed: 0
   brightFraction: 0.06
