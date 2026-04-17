@@ -441,37 +441,6 @@ public class VehicleController : MonoBehaviour
         }
     }
 
-    // ── Debug rays ────────────────────────────────────────────────────────────
-
-    void DrawRays()
-    {
-        Vector2 downDir = -transform.up;
-        Vector2 forwardDir = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
-
-        bool onWallState = state == State.WallCrawl || state == State.RotatingToTop || state == State.TopCrawl;
-        LayerMask surfaceMask = onWallState ? wallMask : groundMask;
-
-        // Center ray — grounded/wall-top detection
-        bool surfaceHit = Physics2D.Raycast(transform.position, downDir, groundCheckDistance, surfaceMask);
-        Debug.DrawRay(transform.position, downDir * groundCheckDistance, surfaceHit ? Color.green : Color.red);
-
-        // Per-wheel rays — slope angle detection
-        Vector2 backDir = -forwardDir;
-        Vector2 frontWheelOrigin = rb.position + forwardDir * frontWheelOffsetX + downDir * wheelOffsetY;
-        Vector2 rearWheelOrigin = rb.position + backDir * rearWheelOffsetX + downDir * wheelOffsetY;
-        bool frontHit = Physics2D.Raycast(frontWheelOrigin, downDir, groundCheckDistance, groundMask | wallMask);
-        bool rearHit = Physics2D.Raycast(rearWheelOrigin, downDir, groundCheckDistance, groundMask | wallMask);
-        Debug.DrawRay(frontWheelOrigin, downDir * groundCheckDistance, frontHit ? Color.cyan : Color.white);
-        Debug.DrawRay(rearWheelOrigin, downDir * groundCheckDistance, rearHit ? Color.cyan : Color.white);
-
-        bool wallDetected = Physics2D.Raycast(transform.position, forwardDir, wallDetectorDistance, wallMask);
-        Debug.DrawRay(transform.position, forwardDir * wallDetectorDistance, wallDetected ? Color.magenta : Color.yellow);
-
-        // Wall-hop sensor — only meaningful while crawling
-        if (state == State.WallCrawl)
-            Debug.DrawRay(transform.position, (Vector2)transform.up * wallHopDistance,
-                wallHopAvailable ? Color.green : Color.grey);
-    }
 
     void RotateAroundRearWheel(float targetZAngle)
     {
@@ -508,5 +477,38 @@ public class VehicleController : MonoBehaviour
     {
         if (a > 180f) a -= 360f;
         return a;
+    }
+
+
+    // ── Debug rays ────────────────────────────────────────────────────────────
+
+    void DrawRays()
+    {
+        Vector2 downDir = -transform.up;
+        Vector2 forwardDir = isFacingRight ? (Vector2)transform.right : -(Vector2)transform.right;
+
+        bool onWallState = state == State.WallCrawl || state == State.RotatingToTop || state == State.TopCrawl;
+        LayerMask surfaceMask = onWallState ? wallMask : groundMask;
+
+        // Center ray — grounded/wall-top detection
+        bool surfaceHit = Physics2D.Raycast(transform.position, downDir, groundCheckDistance, surfaceMask);
+        Debug.DrawRay(transform.position, downDir * groundCheckDistance, surfaceHit ? Color.green : Color.red);
+
+        // Per-wheel rays — slope angle detection
+        Vector2 backDir = -forwardDir;
+        Vector2 frontWheelOrigin = rb.position + forwardDir * frontWheelOffsetX + downDir * wheelOffsetY;
+        Vector2 rearWheelOrigin = rb.position + backDir * rearWheelOffsetX + downDir * wheelOffsetY;
+        bool frontHit = Physics2D.Raycast(frontWheelOrigin, downDir, groundCheckDistance, groundMask | wallMask);
+        bool rearHit = Physics2D.Raycast(rearWheelOrigin, downDir, groundCheckDistance, groundMask | wallMask);
+        Debug.DrawRay(frontWheelOrigin, downDir * groundCheckDistance, frontHit ? Color.cyan : Color.white);
+        Debug.DrawRay(rearWheelOrigin, downDir * groundCheckDistance, rearHit ? Color.cyan : Color.white);
+
+        bool wallDetected = Physics2D.Raycast(transform.position, forwardDir, wallDetectorDistance, wallMask);
+        Debug.DrawRay(transform.position, forwardDir * wallDetectorDistance, wallDetected ? Color.magenta : Color.yellow);
+
+        // Wall-hop sensor — only meaningful while crawling
+        if (state == State.WallCrawl)
+            Debug.DrawRay(transform.position, (Vector2)transform.up * wallHopDistance,
+                wallHopAvailable ? Color.green : Color.grey);
     }
 }
