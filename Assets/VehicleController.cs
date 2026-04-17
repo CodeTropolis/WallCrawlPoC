@@ -18,6 +18,9 @@ public class VehicleController : MonoBehaviour
     public float wallDetectorDistance = 2.5f;
     public LayerMask wallMask;
 
+    [Header("Wall Hop")]
+    public float wallHopDistance = 10f; // how far to scan for an opposing wall while crawling
+
     [Header("Wheel Positions")]
     public float frontWheelOffsetX = 0.8f; // horizontal dist from center to front wheel
     public float rearWheelOffsetX = 0.8f; // horizontal dist from center to rear wheel
@@ -30,8 +33,12 @@ public class VehicleController : MonoBehaviour
     private bool isFacingRight = true;
     private bool climbingRightWall; // which wall face we're on, independent of visual facing
     private float currentSpeed = 0f;
+    private float wallJumpEntrySpeed = 0f; // pre-jump climb speed, restored on landing
+    private bool wallHopAvailable = false; // true when an opposing wall is within wallHopDistance
+    private bool wallUpIsRight = true;     // which key means "up": set on ground entry, preserved through hops
+    private int wallEntryGrace = 0;        // frames to ignore !onWall after entering WallCrawl
 
-    private enum State { Ground, RotatingToWall, WallCrawl, RotatingToGround, RotatingToTop, TopCrawl }
+    private enum State { Ground, RotatingToWall, WallCrawl, RotatingToGround, RotatingToTop, TopCrawl, WallJump }
     private State state = State.Ground;
     private float targetAngle = 0f;
     private float lockedSurfaceX = 0f;
@@ -56,6 +63,7 @@ public class VehicleController : MonoBehaviour
             case State.RotatingToGround: UpdateRotatingToGround(); break;
             case State.RotatingToTop: UpdateRotatingToTop(); break;
             case State.TopCrawl: UpdateTopCrawl(); break;
+            case State.WallJump: UpdateWallJump(); break;
         }
         DrawRays();
     }
@@ -64,6 +72,13 @@ public class VehicleController : MonoBehaviour
 
     void UpdateGround()
     {
+        // Hard-reset all wall-crawl state every frame while grounded.
+        rb.bodyType = RigidbodyType2D.Dynamic;
+        rb.gravityScale = 1f;
+        currentSpeed = 0f;
+        wallJumpEntrySpeed = 0f;
+        wallHopAvailable = false;
+
         // Center rays for reliable grounded/wall-top detection.
         isGrounded = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, groundMask);
         isOnTopOfWall = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
@@ -107,7 +122,10 @@ public class VehicleController : MonoBehaviour
         Vector2 wallCheckDir = isFacingRight ? Vector2.right : Vector2.left;
         RaycastHit2D hit = Physics2D.Raycast(transform.position, wallCheckDir, wallDetectorDistance, wallMask);
         if (hit.collider != null)
+        {
+            wallUpIsRight = isFacingRight; // set once on ground entry; preserved through hops
             EnterWallRotation(hit);
+        }
     }
 
     void EnterWallRotation(RaycastHit2D hit)
@@ -141,6 +159,9 @@ public class VehicleController : MonoBehaviour
         if (Mathf.Abs(Mathf.DeltaAngle(next, targetAngle)) < 0.5f)
         {
             transform.eulerAngles = new Vector3(0f, 0f, targetAngle);
+            currentSpeed = wallJumpEntrySpeed;
+            wallJumpEntrySpeed = 0f;
+            wallEntryGrace = 4;
             state = State.WallCrawl;
         }
     }
@@ -149,10 +170,19 @@ public class VehicleController : MonoBehaviour
 
     void UpdateWallCrawl()
     {
+        // Ensure the physics world reflects any transform changes made in the previous
+        // Update (e.g. position/rotation set by UpdateRotatingToWall), otherwise the
+        // very first onWall raycast sees stale physics state and drops back to Ground.
+        Physics2D.SyncTransforms();
+
         bool onWall = Physics2D.Raycast(transform.position, -transform.up, groundCheckDistance, wallMask);
 
+        // transform.up points into the corridor interior (world-left on right wall, world-right
+        // on left wall), so this ray detects an opposing wall without any extra direction logic.
+        wallHopAvailable = Physics2D.Raycast(transform.position, transform.up, wallHopDistance, wallMask).collider != null;
+
         float h = Input.GetAxisRaw("Horizontal");
-        float climbDir = climbingRightWall ? h : -h;
+        float climbDir = wallUpIsRight ? h : -h; // direction set at ground entry, preserved through hops
 
         // Facing: front faces up when climbing, down when descending.
         bool goingDown = climbDir < -0.01f;
@@ -190,7 +220,20 @@ public class VehicleController : MonoBehaviour
             }
         }
 
-        if (!onWall)
+        if (Input.GetButtonDown("Jump") && onWall)
+        {
+            if (wallHopAvailable)
+                EnterWallJump();
+            else
+                EnterWallKickoff();
+            return;
+        }
+
+        if (wallEntryGrace > 0)
+        {
+            wallEntryGrace--;
+        }
+        else if (!onWall)
         {
             if (climbDir > 0f)
                 EnterTopRotation();
@@ -200,6 +243,73 @@ public class VehicleController : MonoBehaviour
                 rb.gravityScale = 1f;
                 state = State.Ground;
             }
+        }
+    }
+
+    // ── Wall hop (flip to opposing wall) ─────────────────────────────────────
+
+    void EnterWallJump()
+    {
+        bool wasOnRightWall = climbingRightWall;
+
+        // Negate the wall rotation so wheels instantly face the opposing wall.
+        float currentZ = NormalizeAngle(transform.eulerAngles.z);
+        transform.eulerAngles = new Vector3(0f, 0f, -currentZ);
+
+        climbingRightWall = !wasOnRightWall;
+        isFacingRight = climbingRightWall;
+        chassisRenderer.flipX = !climbingRightWall;
+
+        float vx = wasOnRightWall ? -jumpVelocity : jumpVelocity;
+        rb.bodyType = RigidbodyType2D.Dynamic;
+        rb.gravityScale = 0f; // clean horizontal shot; UpdateWallJump lands it
+        rb.linearVelocity = new Vector2(vx, 0f);
+
+        wallJumpEntrySpeed = currentSpeed;
+        currentSpeed = 0f;
+        state = State.WallJump;
+    }
+
+    // ── Wall kickoff (no opposing wall — level out and fall) ──────────────────
+
+    void EnterWallKickoff()
+    {
+        // Snap level immediately so Ground-state ground checks work correctly.
+        transform.eulerAngles = Vector3.zero;
+
+        // Face and launch away from the wall.
+        isFacingRight = !climbingRightWall;
+        chassisRenderer.flipX = climbingRightWall;
+
+        float vx = climbingRightWall ? -jumpVelocity : jumpVelocity;
+        rb.bodyType = RigidbodyType2D.Dynamic;
+        rb.gravityScale = 1f;
+        rb.linearVelocity = new Vector2(vx, jumpVelocity * 0.5f);
+
+        wallJumpEntrySpeed = 0f;
+        currentSpeed = 0f;
+        state = State.Ground;
+    }
+
+    void UpdateWallJump()
+    {
+        // Land on the opposite wall when close enough.
+        Vector2 wallCheckDir = isFacingRight ? Vector2.right : Vector2.left;
+        RaycastHit2D wallHit = Physics2D.Raycast(transform.position, wallCheckDir, wallDetectorDistance, wallMask);
+        if (wallHit.collider != null)
+        {
+            EnterWallRotation(wallHit);
+            return;
+        }
+
+        // Safety fallback: restore physics if somehow grounded without hitting a wall.
+        bool onGround = Physics2D.Raycast(transform.position, Vector2.down, groundCheckDistance, groundMask);
+        if (onGround)
+        {
+            rb.gravityScale = 1f;
+            transform.eulerAngles = Vector3.zero;
+            wallJumpEntrySpeed = 0f;
+            state = State.Ground;
         }
     }
 
@@ -239,8 +349,10 @@ public class VehicleController : MonoBehaviour
         if (Mathf.Abs(Mathf.DeltaAngle(next, targetAngle)) < 0.5f)
         {
             transform.eulerAngles = Vector3.zero;
-            isFacingRight = climbingRightWall;
-            chassisRenderer.flipX = !climbingRightWall;
+            // Face away from the wall so the ground-state wall-check ray doesn't
+            // immediately re-detect the wall we just descended.
+            isFacingRight = !climbingRightWall;
+            chassisRenderer.flipX = climbingRightWall;
             rb.bodyType = RigidbodyType2D.Dynamic;
             rb.gravityScale = 1f;
             state = State.Ground;
@@ -355,6 +467,10 @@ public class VehicleController : MonoBehaviour
         bool wallDetected = Physics2D.Raycast(transform.position, forwardDir, wallDetectorDistance, wallMask);
         Debug.DrawRay(transform.position, forwardDir * wallDetectorDistance, wallDetected ? Color.magenta : Color.yellow);
 
+        // Wall-hop sensor — only meaningful while crawling
+        if (state == State.WallCrawl)
+            Debug.DrawRay(transform.position, (Vector2)transform.up * wallHopDistance,
+                wallHopAvailable ? Color.green : Color.grey);
     }
 
     void RotateAroundRearWheel(float targetZAngle)
