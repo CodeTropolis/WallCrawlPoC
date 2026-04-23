@@ -83,6 +83,7 @@ public class VehicleController : MonoBehaviour
         nextFireTime = Time.time + fireRate;
 
         Vector3 spawnPos = firePoint != null ? firePoint.position : transform.position;
+        spawnPos.z = 1f;
         Quaternion spawnRot = isFacingRight ? transform.rotation : transform.rotation * Quaternion.Euler(0f, 0f, 180f);
         Instantiate(bulletPrefab, spawnPos, spawnRot);
     }
