@@ -21,6 +21,11 @@ public class VehicleController : MonoBehaviour
     [Header("Wall Hop")]
     public float wallHopDistance = 10f; // how far to scan for an opposing wall while crawling
 
+    [Header("Shooting")]
+    public GameObject bulletPrefab;
+    public Transform firePoint;
+    public float fireRate = 0.25f;
+
     [Header("Wheel Positions")]
     public float frontWheelOffsetX = 0.8f; // horizontal dist from center to front wheel
     public float rearWheelOffsetX = 0.8f; // horizontal dist from center to rear wheel
@@ -37,6 +42,7 @@ public class VehicleController : MonoBehaviour
     private bool wallHopAvailable = false; // true when an opposing wall is within wallHopDistance
     private bool wallUpIsRight = true;     // which key means "up": set on ground entry, preserved through hops
     private int wallEntryGrace = 0;        // frames to ignore !onWall after entering WallCrawl
+    private float nextFireTime = 0f;
 
     private enum State { Ground, RotatingToWall, WallCrawl, RotatingToGround, RotatingToTop, TopCrawl, WallJump }
     private State state = State.Ground;
@@ -65,7 +71,20 @@ public class VehicleController : MonoBehaviour
             case State.TopCrawl: UpdateTopCrawl(); break;
             case State.WallJump: UpdateWallJump(); break;
         }
+        HandleFiring();
         DrawRays();
+    }
+
+    void HandleFiring()
+    {
+        if (bulletPrefab == null) return;
+        if (!Input.GetKey(KeyCode.F) || Time.time < nextFireTime) return;
+
+        nextFireTime = Time.time + fireRate;
+
+        Vector3 spawnPos = firePoint != null ? firePoint.position : transform.position;
+        Quaternion spawnRot = isFacingRight ? transform.rotation : transform.rotation * Quaternion.Euler(0f, 0f, 180f);
+        Instantiate(bulletPrefab, spawnPos, spawnRot);
     }
 
     // ── Ground ────────────────────────────────────────────────────────────────

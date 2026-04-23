@@ -538,6 +538,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   wallHopDistance: 6
+  bulletPrefab: {fileID: 7479375380085655968, guid: aef915e1748d642c985a48b8dea4fd05, type: 3}
+  firePoint: {fileID: 0}
+  fireRate: 0.25
   frontWheelOffsetX: 1.8
   rearWheelOffsetX: 1.8
   wheelOffsetY: 0.9
