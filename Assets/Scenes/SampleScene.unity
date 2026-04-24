@@ -475,7 +475,7 @@ Transform:
   m_GameObject: {fileID: 441403937}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -17.24, y: -2.58, z: 0.02596762}
+  m_LocalPosition: {x: -17.24, y: 4.3, z: 0.02596762}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -692,6 +692,7 @@ GameObject:
   - component: {fileID: 519420030}
   - component: {fileID: 519420033}
   - component: {fileID: 519420034}
+  - component: {fileID: 519420035}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -853,6 +854,31 @@ MonoBehaviour:
   offset: {x: 5, y: 0}
   smoothTime: 0.13
   facingTransition: 1
+--- !u!114 &519420035
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519420028}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 15490ffb67095447bb47b605680b7673, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  chunkWidth: 10
+  segmentsPerChunk: 24
+  chunksVisible: 2
+  amplitude: 4
+  frequency: 0.06
+  terrainYOffset: -5
+  terrainBottom: -12
+  enablePits: 0
+  pitZoneWidth: 30
+  pitChance: 0.6
+  pitMinWidth: 4
+  pitMaxWidth: 8
+  terrainColor: {r: 0.3, g: 0.6, b: 0.2, a: 1}
 --- !u!1 &526913322
 GameObject:
   m_ObjectHideFlags: 0
@@ -870,7 +896,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!61 &526913323
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1088,7 +1114,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!61 &1256464670
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1222,7 +1248,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!212 &1313352004
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -1716,7 +1742,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!61 &1998286271
 BoxCollider2D:
   m_ObjectHideFlags: 0
